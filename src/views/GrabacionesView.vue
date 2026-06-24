@@ -21,10 +21,15 @@
         <tbody class="divide-y divide-zinc-700/50">
           <tr v-for="g in grabaciones" :key="g.id" class="hover:bg-zinc-700/20 transition">
             <td class="p-4 font-mono text-xs text-teal-300">
-              <button v-if="g.nombre_archivo" @click="playVideo(g)" class="flex items-center gap-2 hover:text-white transition">
-                <span class="bg-teal-500/20 px-2 py-1 rounded text-teal-400 font-bold border border-teal-500/30">▶ Play</span>
-                {{ g.nombre_archivo }}
-              </button>
+              <div v-if="g.nombre_archivo" class="flex flex-wrap items-center gap-2">
+                <button @click="playVideo(g)" class="flex items-center gap-1 hover:text-white transition">
+                  <span class="bg-teal-500/20 px-2 py-1 rounded text-teal-400 font-bold border border-teal-500/30">▶ Play</span>
+                </button>
+                <a :href="getVideoUrl(g)" :download="g.nombre_archivo" class="flex items-center gap-1 hover:text-white transition">
+                  <span class="bg-indigo-500/20 px-2 py-1 rounded text-indigo-400 font-bold border border-indigo-500/30">⬇️ Descargar</span>
+                </a>
+                <span>{{ g.nombre_archivo }}</span>
+              </div>
               <span v-else>{{ g.nombre_archivo || 'Grabando...' }}</span>
             </td>
             <td class="p-4">{{ g.transmision?.nombre || 'Webcam N/A' }}</td>
@@ -64,10 +69,15 @@ const loading = ref(true)
 const error = ref('')
 const selectedVideoUrl = ref(null)
 
+const getVideoUrl = (g) => {
+  if (!g.nombre_archivo) return ''
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+  return `${backendUrl}/recordings/${g.ruta_archivo}/${g.nombre_archivo}`
+}
+
 const playVideo = (g) => {
   if (!g.nombre_archivo) return
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
-  selectedVideoUrl.value = `${backendUrl}/videos/${g.ruta_archivo}/${g.nombre_archivo}`
+  selectedVideoUrl.value = getVideoUrl(g)
 }
 
 onMounted(async () => {
