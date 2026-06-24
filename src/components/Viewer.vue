@@ -45,6 +45,26 @@
               Apagar
             </button>
           </div>
+          <div class="mt-2 flex items-center justify-between text-xs">
+            <span class="text-zinc-400">Grabación Automática (DVR):</span>
+            <button 
+              @click="toggleGrabacion(cam)" 
+              :disabled="cam.isToggling"
+              class="w-10 h-5 rounded-full relative transition-colors duration-200"
+              :class="[cam.grabacion_activa ? 'bg-teal-500' : 'bg-zinc-600', cam.isToggling ? 'opacity-50 cursor-not-allowed' : '']"
+            >
+              <span 
+                class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-transform duration-200 flex items-center justify-center"
+                :class="[cam.grabacion_activa ? 'translate-x-5 bg-white' : 'translate-x-0 bg-white', cam.isToggling ? 'bg-transparent' : '']"
+              >
+                <!-- Spinner SVG when loading -->
+                <svg v-if="cam.isToggling" class="animate-spin w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </span>
+            </button>
+          </div>
         </div>
 
         <div v-if="rtspCameras.length === 0" class="text-center py-6 text-zinc-500 text-xs border border-dashed border-zinc-700 rounded-xl">
@@ -81,16 +101,21 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { io } from 'socket.io-client'
 import * as mediasoupClient from 'mediasoup-client'
+import { useAuthStore } from '../stores/auth.store'
+import { http } from '../api/http'
 
 const cameras = ref([])
 const rtspCameras = ref([])
+const auth = useAuthStore()
 let socket = null
 let device = null
 let recvTransport = null
 
 onMounted(async () => {
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
-  socket = io(backendUrl)
+  socket = io(backendUrl, {
+    auth: { token: auth.token }
+  })
 
   socket.on('connect', async () => {
     console.log('Conectado al servidor de Mediasoup')
@@ -219,11 +244,37 @@ async function toggleCamera(camera) {
     });
   } catch (err) {
     console.error('Error al activar stream de la cámara:', err);
+    alert('No se pudo activar: ' + (err.message || 'Sin permisos'));
   }
 }
 
 function disconnectCamera(cameraId) {
   socket.emit('leave-camera-stream', { cameraId });
+}
+
+async function toggleGrabacion(camera) {
+  if (camera.isToggling) return;
+  
+  camera.isToggling = true;
+  const newState = !camera.grabacion_activa;
+  
+  try {
+    const res = await new Promise((resolve) => {
+      socket.emit('toggle-dvr', { cameraId: camera.id, state: newState }, resolve);
+    });
+
+    if (res && res.success) {
+      camera.grabacion_activa = res.grabacion_activa;
+    } else {
+      console.error('Error del servidor al cambiar grabación:', res?.error);
+      alert('Error: ' + (res?.error || 'Desconocido'));
+    }
+  } catch (err) {
+    console.error('Error al cambiar grabación:', err)
+    alert('No se pudo cambiar el estado de grabación')
+  } finally {
+    camera.isToggling = false;
+  }
 }
 </script>
 

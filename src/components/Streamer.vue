@@ -50,6 +50,11 @@
       </div>
     </div>
     
+    <div class="mb-4 flex items-center gap-2">
+      <input type="checkbox" id="recordServer" v-model="recordOnServer" class="w-4 h-4 text-teal-500 bg-zinc-900 border-zinc-700 rounded focus:ring-teal-500">
+      <label for="recordServer" class="text-sm font-semibold text-zinc-300">Grabar en el servidor (DVR)</label>
+    </div>
+
     <button 
       @click="startStreaming" 
       :disabled="isStreaming" 
@@ -64,10 +69,12 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { io } from 'socket.io-client'
 import * as mediasoupClient from 'mediasoup-client'
+import { useAuthStore } from '../stores/auth.store'
 
 const videoEl = ref(null)
 const isStreaming = ref(false)
 const recordingMode = ref('')
+const recordOnServer = ref(false)
 let socket = null
 let device = null
 let sendTransport = null
@@ -84,7 +91,10 @@ const audioDevices = computed(() => devices.value.filter(d => d.kind === 'audioi
 
 onMounted(async () => {
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
-  socket = io(backendUrl)
+  const auth = useAuthStore()
+  socket = io(backendUrl, {
+    auth: { token: auth.token }
+  })
 
   socket.on('connect', () => {
     console.log('Conectado al servidor de Mediasoup')
@@ -248,7 +258,9 @@ async function startStreaming() {
     const audioTrack = stream.getAudioTracks()[0]
     if (audioTrack) await sendTransport.produce({ track: audioTrack })
 
-    socket.emit('start-recording')
+    if (recordOnServer.value) {
+      socket.emit('start-recording')
+    }
 
   } catch (err) {
     console.error('Error al iniciar la transmisión:', err)
