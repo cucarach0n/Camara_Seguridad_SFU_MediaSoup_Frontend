@@ -1,4 +1,5 @@
 import axios from 'axios';
+import router from '../router';
 
 export const http = axios.create({
   baseURL: import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000',
@@ -17,7 +18,7 @@ http.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('jwt');
-      window.location.href = '/login';
+      router.push('/login');
     }
     return Promise.reject(error);
   }
