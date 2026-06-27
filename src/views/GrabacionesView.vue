@@ -210,12 +210,37 @@ watch(zoomLevel, (newZoom, oldZoom) => {
   if (!timelineContainer.value) return
   
   const el = timelineContainer.value
-  const scrollCenterPx = el.scrollLeft + el.clientWidth / 2
-  const centerPercent = scrollCenterPx / el.scrollWidth
+  let centerPercent;
+
+  if (currentRecording.value) {
+    // Si hay un video seleccionado, forzamos el centro en ese video
+    const leftP = getLeftPercent(currentRecording.value)
+    const widthP = getWidthPercent(currentRecording.value)
+    centerPercent = (leftP + widthP / 2) / 100
+  } else {
+    // Si no, mantenemos el centro de lo que el usuario estaba mirando
+    const scrollCenterPx = el.scrollLeft + el.clientWidth / 2
+    centerPercent = scrollCenterPx / el.scrollWidth
+  }
   
   // Al quitar la transición CSS, el ancho cambia inmediatamente en el siguiente tick del DOM
   nextTick(() => {
     el.scrollLeft = (centerPercent * el.scrollWidth) - (el.clientWidth / 2)
+  })
+})
+
+watch(currentRecording, (newRec) => {
+  if (!newRec || !timelineContainer.value) return
+  
+  const el = timelineContainer.value
+  const leftP = getLeftPercent(newRec)
+  const widthP = getWidthPercent(newRec)
+  const centerPercent = (leftP + widthP / 2) / 100
+  
+  // Auto-scroll suave para centrar el video cuando se selecciona
+  el.scrollTo({
+    left: (centerPercent * el.scrollWidth) - (el.clientWidth / 2),
+    behavior: 'smooth'
   })
 })
 
