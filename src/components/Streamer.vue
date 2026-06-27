@@ -1,61 +1,76 @@
 <template>
-  <div class="bg-zinc-800 p-6 rounded-2xl shadow-xl ring-1 ring-white/10">
-    <h2 class="text-2xl font-bold mb-4">Streamer (Cámara en Vivo)</h2>
+  <div class="bg-zinc-900/40 backdrop-blur-xl border border-white/5 p-2 sm:p-6 rounded-3xl shadow-2xl animate-[fade-in_0.5s_ease-out]">
+    <div class="flex items-center gap-3 mb-6 px-2">
+      <div class="w-3 h-3 rounded-full bg-teal-500 shadow-[0_0_10px_rgba(20,184,166,0.8)] animate-pulse"></div>
+      <h2 class="text-2xl font-black text-white">Transmisión Local</h2>
+    </div>
     
-    <div class="aspect-video bg-black rounded-lg overflow-hidden mb-4 relative shadow-inner">
+    <div class="aspect-video bg-black rounded-2xl overflow-hidden mb-6 relative shadow-inner border border-white/10 group">
       <video ref="videoEl" autoplay muted playsinline class="w-full h-full object-cover"></video>
-      <div v-if="recordingMode" class="absolute top-4 right-4 px-3 py-1 bg-red-500/80 backdrop-blur rounded-full text-xs font-bold animate-pulse">
-        MODO: {{ recordingMode }}
+      <div v-if="recordingMode" class="absolute top-4 right-4 px-3 py-1 bg-rose-500/80 backdrop-blur-md rounded-full text-xs font-bold shadow-lg shadow-rose-500/20 text-white flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+        REC ({{ recordingMode }})
       </div>
+      <div class="absolute inset-0 ring-inset ring-1 ring-white/10 pointer-events-none rounded-2xl group-hover:ring-teal-500/30 transition-colors duration-500"></div>
     </div>
 
     <!-- Controles de Selección de Dispositivos (Estilo Moderno/Glassmorphism) -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-      <div class="flex flex-col">
-        <label for="videoSource" class="text-xs font-semibold text-zinc-400 mb-1.5 flex items-center gap-1">
-          <span class="inline-block w-2 h-2 rounded-full bg-teal-400"></span>
-          Cámara / Video
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6 px-2">
+      <div class="flex flex-col gap-2 relative">
+        <label for="videoSource" class="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+          <svg class="w-4 h-4 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+          Cámara Origen
         </label>
-        <select 
-          id="videoSource" 
-          v-model="selectedVideoId" 
-          @change="updateStream" 
-          :disabled="isStreaming"
-          class="w-full bg-zinc-900/60 border border-zinc-700/80 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-teal-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150"
-        >
-          <option v-for="device in videoDevices" :key="device.deviceId" :value="device.deviceId">
-            {{ device.label || `Cámara ${device.deviceId.slice(0, 5)}` }}
-          </option>
-          <option v-if="videoDevices.length === 0" value="">No se encontraron cámaras</option>
-        </select>
+        <div class="relative">
+          <select 
+            id="videoSource" 
+            v-model="selectedVideoId" 
+            @change="updateStream" 
+            :disabled="isStreaming"
+            class="w-full appearance-none bg-zinc-950/50 border border-zinc-800 rounded-xl pl-4 pr-10 py-3 text-sm text-zinc-200 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 disabled:opacity-50 transition-all duration-300"
+          >
+            <option v-for="device in videoDevices" :key="device.deviceId" :value="device.deviceId">
+              {{ device.label || `Cámara ${device.deviceId.slice(0, 5)}` }}
+            </option>
+            <option v-if="videoDevices.length === 0" value="">No se encontraron cámaras</option>
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-zinc-500">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+          </div>
+        </div>
       </div>
 
-      <div class="flex flex-col">
-        <label for="audioSource" class="text-xs font-semibold text-zinc-400 mb-1.5 flex items-center gap-1">
-          <span class="inline-block w-2 h-2 rounded-full bg-blue-400"></span>
-          Micrófono / Audio
+      <div class="flex flex-col gap-2 relative">
+        <label for="audioSource" class="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+          <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+          Micrófono
         </label>
-        <select 
-          id="audioSource" 
-          v-model="selectedAudioId" 
-          @change="updateStream" 
-          :disabled="isStreaming"
-          class="w-full bg-zinc-900/60 border border-zinc-700/80 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-teal-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition duration-150"
-        >
-          <option v-for="device in audioDevices" :key="device.deviceId" :value="device.deviceId">
-            {{ device.label || `Micrófono ${device.deviceId.slice(0, 5)}` }}
-          </option>
-          <option v-if="audioDevices.length === 0" value="">No se encontraron micrófonos</option>
-        </select>
+        <div class="relative">
+          <select 
+            id="audioSource" 
+            v-model="selectedAudioId" 
+            @change="updateStream" 
+            :disabled="isStreaming"
+            class="w-full appearance-none bg-zinc-950/50 border border-zinc-800 rounded-xl pl-4 pr-10 py-3 text-sm text-zinc-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50 transition-all duration-300"
+          >
+            <option v-for="device in audioDevices" :key="device.deviceId" :value="device.deviceId">
+              {{ device.label || `Micrófono ${device.deviceId.slice(0, 5)}` }}
+            </option>
+            <option v-if="audioDevices.length === 0" value="">No se encontraron micrófonos</option>
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-zinc-500">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- Control de Linterna (Solo visible si es soportada) -->
-    <div v-if="isTorchSupported" class="mb-4">
+    <div v-if="isTorchSupported" class="mb-6 px-2">
       <button 
         @click="toggleTorch"
-        :class="isTorchOn ? 'bg-yellow-500 hover:bg-yellow-400 text-zinc-900' : 'bg-zinc-700 hover:bg-zinc-600 text-white'"
-        class="w-full py-2 font-bold rounded-lg transition duration-200 flex justify-center items-center gap-2 shadow-md"
+        :class="isTorchOn ? 'bg-yellow-500 text-zinc-900 shadow-lg shadow-yellow-500/20' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'"
+        class="w-full py-3 font-bold rounded-xl transition-all duration-300 flex justify-center items-center gap-2 border border-white/5 active:scale-95"
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" :opacity="isTorchOn ? '1' : '0.5'"></path>
@@ -64,37 +79,47 @@
       </button>
     </div>
     
-    <div class="mb-4 flex items-center gap-2">
-      <input type="checkbox" id="recordServer" v-model="recordOnServer" class="w-4 h-4 text-teal-500 bg-zinc-900 border-zinc-700 rounded focus:ring-teal-500">
-      <label for="recordServer" class="text-sm font-semibold text-zinc-300">Grabar en el servidor (DVR)</label>
+    <div class="mb-8 px-3 flex items-center gap-3">
+      <div class="relative flex items-center">
+        <input type="checkbox" id="recordServer" v-model="recordOnServer" class="peer sr-only">
+        <div class="w-11 h-6 bg-zinc-700 rounded-full peer peer-focus:ring-2 peer-focus:ring-teal-500 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-500 cursor-pointer" @click="recordOnServer = !recordOnServer"></div>
+      </div>
+      <label for="recordServer" class="text-sm font-semibold text-zinc-300 cursor-pointer select-none">Grabar evento en el servidor (DVR)</label>
     </div>
 
     <!-- Botón Principal -->
-    <button 
-      v-if="!isStreaming && !isReconnecting"
-      @click="startStreaming" 
-      class="w-full py-3 bg-teal-500 hover:bg-teal-400 text-zinc-900 font-bold rounded-lg transition duration-200 transform hover:scale-[1.01] active:scale-[0.99] shadow-lg shadow-teal-500/10"
-    >
-      Iniciar Transmisión
-    </button>
-    <button 
-      v-else-if="isReconnecting"
-      disabled
-      class="w-full py-3 bg-yellow-500/50 text-zinc-200 font-bold rounded-lg transition duration-200 cursor-not-allowed flex justify-center items-center gap-2"
-    >
-      <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-      </svg>
-      Reconectando...
-    </button>
-    <button 
-      v-else
-      @click="stopStreaming" 
-      class="w-full py-3 bg-red-500 hover:bg-red-400 text-white font-bold rounded-lg transition duration-200 transform hover:scale-[1.01] active:scale-[0.99] shadow-lg shadow-red-500/10"
-    >
-      Detener Transmisión
-    </button>
+    <div class="px-2">
+      <button 
+        v-if="!isStreaming && !isReconnecting"
+        @click="startStreaming" 
+        class="w-full relative group overflow-hidden bg-teal-500 text-zinc-950 font-black tracking-wider py-4 rounded-xl shadow-[0_0_20px_rgba(20,184,166,0.3)] hover:shadow-[0_0_30px_rgba(20,184,166,0.5)] transition-all duration-300 transform active:scale-95 flex justify-center items-center gap-2"
+      >
+        <div class="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
+        <span class="relative flex items-center gap-2">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+          INICIAR TRANSMISIÓN
+        </span>
+      </button>
+      <button 
+        v-else-if="isReconnecting"
+        disabled
+        class="w-full py-4 bg-yellow-500/20 text-yellow-500 border border-yellow-500/30 font-bold rounded-xl transition-all duration-300 cursor-not-allowed flex justify-center items-center gap-2"
+      >
+        <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        Reconectando...
+      </button>
+      <button 
+        v-else
+        @click="stopStreaming" 
+        class="w-full py-4 bg-rose-500 hover:bg-rose-600 text-white font-black tracking-wider rounded-xl transition-all duration-300 transform active:scale-95 shadow-[0_0_20px_rgba(244,63,94,0.3)] hover:shadow-[0_0_30px_rgba(244,63,94,0.5)] flex justify-center items-center gap-2"
+      >
+        <svg class="w-5 h-5 animate-pulse" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
+        DETENER TRANSMISIÓN
+      </button>
+    </div>
   </div>
 </template>
 
