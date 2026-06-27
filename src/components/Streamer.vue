@@ -49,6 +49,20 @@
         </select>
       </div>
     </div>
+
+    <!-- Control de Linterna (Solo visible si es soportada) -->
+    <div v-if="isTorchSupported" class="mb-4">
+      <button 
+        @click="toggleTorch"
+        :class="isTorchOn ? 'bg-yellow-500 hover:bg-yellow-400 text-zinc-900' : 'bg-zinc-700 hover:bg-zinc-600 text-white'"
+        class="w-full py-2 font-bold rounded-lg transition duration-200 flex justify-center items-center gap-2 shadow-md"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" :opacity="isTorchOn ? '1' : '0.5'"></path>
+        </svg>
+        {{ isTorchOn ? 'Apagar Linterna' : 'Encender Linterna' }}
+      </button>
+    </div>
     
     <div class="mb-4 flex items-center gap-2">
       <input type="checkbox" id="recordServer" v-model="recordOnServer" class="w-4 h-4 text-teal-500 bg-zinc-900 border-zinc-700 rounded focus:ring-teal-500">
@@ -89,6 +103,40 @@ const localStream = ref(null)
 const videoDevices = computed(() => devices.value.filter(d => d.kind === 'videoinput'))
 const audioDevices = computed(() => devices.value.filter(d => d.kind === 'audioinput'))
 
+const isTorchSupported = ref(false)
+const isTorchOn = ref(false)
+
+async function checkTorchSupport(stream) {
+  const track = stream.getVideoTracks()[0];
+  if (track) {
+    try {
+      const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+      isTorchSupported.value = !!capabilities.torch;
+      isTorchOn.value = false;
+    } catch (e) {
+      isTorchSupported.value = false;
+    }
+  } else {
+    isTorchSupported.value = false;
+  }
+}
+
+async function toggleTorch() {
+  if (!localStream.value) return;
+  const track = localStream.value.getVideoTracks()[0];
+  if (track && isTorchSupported.value) {
+    try {
+      const newState = !isTorchOn.value;
+      await track.applyConstraints({
+        advanced: [{ torch: newState }]
+      });
+      isTorchOn.value = newState;
+    } catch (e) {
+      console.error('Error al encender/apagar la linterna:', e);
+    }
+  }
+}
+
 onMounted(async () => {
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
   const auth = useAuthStore()
@@ -128,6 +176,8 @@ async function initPreview() {
 
     // Listar todos los dispositivos de audio y video
     await loadDevices()
+    
+    await checkTorchSupport(stream)
 
     // Auto-seleccionar los ID de dispositivo de los tracks activos iniciales
     const videoTrack = stream.getVideoTracks()[0]
@@ -176,6 +226,8 @@ async function updateStream() {
     if (videoEl.value) {
       videoEl.value.srcObject = stream
     }
+
+    await checkTorchSupport(stream)
 
     // Asegurar que el id seleccionado corresponda al track actual
     const videoTrack = stream.getVideoTracks()[0]
