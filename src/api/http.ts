@@ -2,7 +2,11 @@ import axios from 'axios';
 import router from '../router';
 
 export const http = axios.create({
-  baseURL: import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000',
+  baseURL: import.meta.env.VITE_BACKEND_URL 
+    ? (import.meta.env.VITE_BACKEND_URL.endsWith('/api') 
+        ? import.meta.env.VITE_BACKEND_URL 
+        : `${import.meta.env.VITE_BACKEND_URL}/api`)
+    : 'http://localhost:3000/api',
 });
 
 http.interceptors.request.use((config) => {
