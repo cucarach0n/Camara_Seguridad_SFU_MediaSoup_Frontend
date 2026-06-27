@@ -18,13 +18,22 @@
               <p class="text-sm font-bold text-zinc-200 group-hover:text-white transition-colors">{{ cam.name }}</p>
               <p class="text-[10px] text-zinc-500 font-mono mt-0.5">{{ cam.id }}</p>
             </div>
-            <span 
-              class="px-2.5 py-1 text-[9px] font-black rounded-lg tracking-widest flex items-center gap-1.5 shadow-sm"
-              :class="cam.isLive ? 'bg-teal-500/20 text-teal-400 border border-teal-500/30 shadow-teal-500/10' : 'bg-zinc-800 text-zinc-500 border border-zinc-700'"
-            >
-              <span v-if="cam.isLive" class="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse"></span>
-              {{ cam.isLive ? 'EN VIVO' : 'OFFLINE' }}
-            </span>
+            <div class="flex flex-col items-end gap-1.5">
+              <span 
+                class="px-2.5 py-1 text-[9px] font-black rounded-lg tracking-widest flex items-center gap-1.5 shadow-sm"
+                :class="cam.isLive ? 'bg-teal-500/20 text-teal-400 border border-teal-500/30 shadow-teal-500/10' : 'bg-zinc-800 text-zinc-500 border border-zinc-700'"
+              >
+                <span v-if="cam.isLive" class="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse"></span>
+                {{ cam.isLive ? 'EN VIVO' : 'OFFLINE' }}
+              </span>
+              <button 
+                @click="deleteRtspCamera(cam.id)" 
+                class="w-6 h-6 flex items-center justify-center bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded transition-colors border border-red-500/20" 
+                title="Eliminar Cámara RTSP"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+              </button>
+            </div>
           </div>
 
           <div class="flex gap-2 mt-1">
@@ -357,6 +366,19 @@ function toggleFullscreen(elementId) {
     if (document.exitFullscreen) {
       document.exitFullscreen();
     }
+  }
+}
+
+async function deleteRtspCamera(id) {
+  if (!confirm('¿Estás seguro de que deseas eliminar permanentemente este Nodo RTSP?')) return
+  
+  try {
+    await http.delete(`/transmisiones/${id}`)
+    rtspCameras.value = rtspCameras.value.filter(c => c.id !== id)
+    console.log(`Cámara ${id} eliminada exitosamente.`)
+  } catch (err) {
+    console.error('Error eliminando cámara RTSP:', err)
+    alert(err.response?.data?.message || 'Error al eliminar la cámara')
   }
 }
 </script>

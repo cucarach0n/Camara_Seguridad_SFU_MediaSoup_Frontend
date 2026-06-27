@@ -79,14 +79,19 @@
                 <span class="block font-bold text-zinc-200 group-hover:text-white transition-colors">{{ gw.nombre }}</span>
                 <span class="text-[11px] text-zinc-500 font-mono mt-0.5 block">{{ gw.identificador }} • Dueño: {{ gw.usuario?.username }}</span>
               </div>
-              <div class="flex items-center gap-2">
-                <span class="relative flex h-3 w-3">
-                  <span v-if="gw.conectado" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span class="relative inline-flex rounded-full h-3 w-3" :class="gw.conectado ? 'bg-green-500' : 'bg-zinc-600'"></span>
-                </span>
-                <span :class="gw.conectado ? 'text-green-400' : 'text-zinc-500'" class="text-xs font-bold uppercase tracking-wider">
-                  {{ gw.conectado ? 'Online' : 'Offline' }}
-                </span>
+              <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                  <span class="relative flex h-3 w-3">
+                    <span v-if="gw.conectado" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3" :class="gw.conectado ? 'bg-green-500' : 'bg-zinc-600'"></span>
+                  </span>
+                  <span :class="gw.conectado ? 'text-green-400' : 'text-zinc-500'" class="text-xs font-bold uppercase tracking-wider">
+                    {{ gw.conectado ? 'Online' : 'Offline' }}
+                  </span>
+                </div>
+                <button @click="eliminarGateway(gw.id)" class="w-8 h-8 flex items-center justify-center bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition-all border border-red-500/20 hover:border-transparent" title="Eliminar Gateway">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                </button>
               </div>
             </li>
           </ul>
@@ -163,6 +168,18 @@ const registrarGateway = async () => {
     alert(e.response?.data?.message || 'Error al registrar gateway')
   } finally {
     loadingGw.value = false
+  }
+}
+
+const eliminarGateway = async (id) => {
+  if (!confirm('¿Estás seguro de que deseas eliminar este Gateway? Esta acción no se puede deshacer.')) return
+  
+  try {
+    await http.delete(`/gateways/${id}`)
+    await fetchData()
+  } catch (e) {
+    console.error('Error eliminando gateway:', e)
+    alert(e.response?.data?.message || 'Error al eliminar el gateway')
   }
 }
 </script>
