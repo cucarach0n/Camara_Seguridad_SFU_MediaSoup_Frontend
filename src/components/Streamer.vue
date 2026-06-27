@@ -1,8 +1,27 @@
 <template>
   <div class="bg-zinc-900/40 backdrop-blur-xl border border-white/5 p-2 sm:p-6 rounded-3xl shadow-2xl animate-[fade-in_0.5s_ease-out]">
-    <div class="flex items-center gap-3 mb-6 px-2">
-      <div class="w-3 h-3 rounded-full bg-teal-500 shadow-[0_0_10px_rgba(20,184,166,0.8)] animate-pulse"></div>
-      <h2 class="text-2xl font-black text-white">Transmisión Local</h2>
+    <div class="flex items-center justify-between mb-6 px-2">
+      <div class="flex items-center gap-3">
+        <div class="w-3 h-3 rounded-full bg-teal-500 shadow-[0_0_10px_rgba(20,184,166,0.8)] animate-pulse"></div>
+        <h2 class="text-2xl font-black text-white">Transmisión Local</h2>
+      </div>
+      <button @click="$emit('remove')" class="text-zinc-500 hover:text-rose-500 transition-colors" title="Cerrar Panel">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </button>
+    </div>
+
+    <div class="mb-5 px-2">
+      <label class="block text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-2 mb-2">
+        <svg class="w-4 h-4 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        Nombre en la Línea de Tiempo
+      </label>
+      <input 
+        type="text" 
+        v-model="streamName" 
+        :disabled="isStreaming"
+        placeholder="Ej. Cámara Recepción" 
+        class="w-full bg-zinc-950/50 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-200 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 disabled:opacity-50 transition-all duration-300"
+      >
     </div>
     
     <div class="aspect-video bg-black rounded-2xl overflow-hidden mb-6 relative shadow-inner border border-white/10 group">
@@ -128,6 +147,12 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { io } from 'socket.io-client'
 import * as mediasoupClient from 'mediasoup-client'
 import { useAuthStore } from '../stores/auth.store'
+import { http } from '../api/http'
+
+const emit = defineEmits(['remove'])
+
+const streamName = ref('Cámara Web Local')
+const transmisionId = ref(null)
 
 const videoEl = ref(null)
 const isStreaming = ref(false)
@@ -317,6 +342,11 @@ async function updateStream() {
 async function startStreaming() {
   if (isStreaming.value) return
 
+  if (!streamName.value.trim()) {
+    alert('Debes asignarle un nombre a la cámara para identificarla en las grabaciones.')
+    return
+  }
+
   // Asegurar que tengamos un stream local antes de transmitir
   if (!localStream.value) {
     await updateStream()
@@ -331,12 +361,20 @@ async function startStreaming() {
   const stream = localStream.value
 
   try {
+    // Registrar transmision en BD para obtener ID único
+    const res = await http.post('/transmisiones', {
+      tipo_origen: 'NAVEGADOR',
+      nombre: streamName.value,
+      gateway_id: null
+    })
+    transmisionId.value = res.data.id
+
     // MODO A: Client-side recording chunks
     if (recordingMode.value === 'A') {
       mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' })
       mediaRecorder.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) {
-          socket.emit('video-chunk', e.data)
+          socket.emit('video-chunk', { chunk: e.data, transmisionId: transmisionId.value })
         }
       }
       mediaRecorder.start(5000) // chunk cada 5 segundos
@@ -371,7 +409,12 @@ async function startStreaming() {
 
     sendTransport.on('produce', async ({ kind, rtpParameters }, callback, errback) => {
       try {
-        const { id } = await new Promise(resolve => socket.emit('produce', { transportId: sendTransport.id, kind, rtpParameters }, resolve))
+        const { id } = await new Promise(resolve => socket.emit('produce', { 
+          transportId: sendTransport.id, 
+          kind, 
+          rtpParameters,
+          streamName: streamName.value
+        }, resolve))
         callback({ id })
       } catch (err) {
         errback(err)
@@ -385,7 +428,7 @@ async function startStreaming() {
     if (audioTrack) await sendTransport.produce({ track: audioTrack })
 
     if (recordOnServer.value) {
-      socket.emit('start-recording')
+      socket.emit('start-recording', { transmisionId: transmisionId.value })
     }
 
   } catch (err) {

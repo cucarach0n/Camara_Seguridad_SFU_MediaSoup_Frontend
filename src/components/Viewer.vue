@@ -21,10 +21,11 @@
             <div class="flex flex-col items-end gap-1.5">
               <span 
                 class="px-2.5 py-1 text-[9px] font-black rounded-lg tracking-widest flex items-center gap-1.5 shadow-sm"
-                :class="cam.isLive ? 'bg-teal-500/20 text-teal-400 border border-teal-500/30 shadow-teal-500/10' : 'bg-zinc-800 text-zinc-500 border border-zinc-700'"
+                :class="cam.isLive ? 'bg-teal-500/20 text-teal-400 border border-teal-500/30 shadow-teal-500/10' : (cam.isOnline ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30 shadow-blue-500/10' : 'bg-zinc-800 text-zinc-500 border border-zinc-700')"
               >
                 <span v-if="cam.isLive" class="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse"></span>
-                {{ cam.isLive ? 'EN VIVO' : 'OFFLINE' }}
+                <span v-else-if="cam.isOnline" class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                {{ cam.isLive ? 'EN VIVO' : (cam.isOnline ? 'ONLINE' : 'OFFLINE') }}
               </span>
               <button 
                 @click="deleteRtspCamera(cam.id)" 
@@ -38,23 +39,25 @@
 
           <div class="flex gap-2 mt-1">
             <button 
-              @click="toggleCamera(cam)" 
-              class="flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all duration-300 active:scale-95 flex items-center justify-center gap-1.5"
-              :class="cam.isLive 
-                ? 'bg-teal-500 hover:bg-teal-400 text-zinc-950 shadow-lg shadow-teal-500/20' 
-                : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-white/5'"
+              v-if="!cam.isLive"
+              @click="requestCameraStream(cam)" 
+              :disabled="!cam.isOnline || loadingCameraIds.has(cam.id)"
+              class="flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-1.5"
+              :class="(!cam.isOnline || loadingCameraIds.has(cam.id)) 
+                    ? 'bg-zinc-800 text-zinc-500 border border-white/5 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20 active:scale-95'"
             >
-              <svg v-if="cam.isLive" class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+              <svg v-if="loadingCameraIds.has(cam.id)" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
               <svg v-else class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
-              {{ cam.isLive ? 'Visualizar' : 'Conectar' }}
+              {{ loadingCameraIds.has(cam.id) ? 'Iniciando...' : 'Transmitir' }}
             </button>
             <button 
               v-if="cam.isLive" 
               @click="disconnectCamera(cam.id)" 
-              class="py-2 px-3 text-xs font-bold bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white rounded-xl border border-rose-500/20 transition-all duration-300 active:scale-95 shadow-sm hover:shadow-rose-500/20"
-              title="Apagar stream"
+              class="flex-1 py-2 px-3 text-xs font-bold bg-rose-500 hover:bg-rose-400 text-zinc-950 rounded-xl shadow-lg shadow-rose-500/20 transition-all duration-300 active:scale-95 flex items-center justify-center gap-1.5"
             >
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd"></path></svg>
+              Apagar Transmisión
             </button>
           </div>
           
@@ -145,7 +148,8 @@ const auth = useAuthStore()
 let socket = null
 let device = null
 let recvTransport = null
-const activeCameraIds = new Set()
+const activeCameraIds = ref(new Set())
+const loadingCameraIds = ref(new Set())
 
 onMounted(async () => {
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
@@ -167,7 +171,7 @@ onMounted(async () => {
     rtspCameras.value = list
 
     // Auto-reconectar cámaras RTSP que estaban activas antes de la desconexión
-    for (const camId of activeCameraIds) {
+    for (const camId of activeCameraIds.value) {
       try {
         console.log(`Auto-reconectando cámara RTSP: ${camId}`);
         await new Promise((resolve, reject) => {
@@ -178,7 +182,7 @@ onMounted(async () => {
         });
       } catch (err) {
         console.error(`Fallo auto-reconexión de cámara ${camId}:`, err);
-        activeCameraIds.delete(camId);
+        activeCameraIds.value.delete(camId);
       }
     }
   })
@@ -205,8 +209,25 @@ onMounted(async () => {
     cameras.value = cameras.value.filter(c => c.id !== streamerId);
   })
 
+  socket.on('camera-stopped', ({ cameraId }) => {
+    console.log(`Cámara detenida globalmente: ${cameraId}`);
+    activeCameraIds.value.delete(cameraId);
+    const streamObj = cameras.value.find(c => c.id === cameraId);
+    if (streamObj) {
+      streamObj.mediaStream.getTracks().forEach(t => t.stop());
+      cameras.value = cameras.value.filter(c => c.id !== cameraId);
+    }
+  })
+
   socket.on('rtsp-cameras-updated', (list) => {
-    rtspCameras.value = list
+    rtspCameras.value = list;
+
+    // Si alguna cámara está EN VIVO y no la estamos viendo localmente, auto-conectar
+    for (const cam of rtspCameras.value) {
+      if (cam.isLive && !activeCameraIds.value.has(cam.id) && !loadingCameraIds.value.has(cam.id)) {
+        requestCameraStream(cam);
+      }
+    }
   })
 })
 
@@ -264,7 +285,7 @@ async function consumeTrack(producerId) {
         id: streamId,
         name: isRtsp 
           ? (rtspCameras.value.find(c => c.id === streamId)?.name || `Cámara ${streamId}`)
-          : `Streamer ${streamId.slice(0, 5)}`,
+          : (appData?.streamName || `Streamer ${streamId.slice(0, 5)}`),
         type: isRtsp ? 'rtsp' : 'webcam',
         mediaStream: new MediaStream(),
         producerIds: []
@@ -304,13 +325,20 @@ async function consumeTrack(producerId) {
   }
 }
 
-async function toggleCamera(camera) {
+async function requestCameraStream(camera) {
   try {
+    loadingCameraIds.value.add(camera.id);
     await new Promise((resolve, reject) => {
-      socket.emit('request-camera-stream', { cameraId: camera.id }, (res) => {
+      socket.emit('request-camera-stream', { cameraId: camera.id }, async (res) => {
         if (res && res.error) reject(new Error(res.error));
         else {
-          activeCameraIds.add(camera.id);
+          activeCameraIds.value.add(camera.id);
+          if (res && res.videoProducerId) {
+            await consumeTrack(res.videoProducerId);
+          }
+          if (res && res.audioProducerId) {
+            await consumeTrack(res.audioProducerId);
+          }
           resolve(res);
         }
       });
@@ -318,12 +346,27 @@ async function toggleCamera(camera) {
   } catch (err) {
     console.error('Error al activar stream de la cámara:', err);
     alert('No se pudo activar: ' + (err.message || 'Sin permisos'));
+  } finally {
+    loadingCameraIds.value.delete(camera.id);
+  }
+}
+
+function hideLocalCamera(cameraId) {
+  // Solo limpiar la vista local, no apagar el stream global
+  activeCameraIds.value.delete(cameraId);
+  const streamObj = cameras.value.find(c => c.id === cameraId);
+  if (streamObj) {
+    streamObj.mediaStream.getTracks().forEach(t => t.stop());
+    cameras.value = cameras.value.filter(c => c.id !== cameraId);
   }
 }
 
 function disconnectCamera(cameraId) {
-  activeCameraIds.delete(cameraId);
-  socket.emit('leave-camera-stream', { cameraId });
+  // Acción global: Apagar el stream para todos y deshabilitar grabación
+  socket.emit('stop-camera-broadcast', { cameraId });
+  
+  // Limpieza local preventiva
+  hideLocalCamera(cameraId);
 }
 
 async function toggleGrabacion(camera) {
