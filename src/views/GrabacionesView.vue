@@ -15,7 +15,7 @@
             <th class="p-4">Usuario</th>
             <th class="p-4">Fecha</th>
             <th class="p-4">Tamaño</th>
-            <th class="p-4 rounded-tr-xl">Drive</th>
+            <th class="p-4 rounded-tr-xl">Acciones</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-zinc-700/50">
@@ -37,8 +37,13 @@
             <td class="p-4">{{ new Date(g.creado_en).toLocaleString() }}</td>
             <td class="p-4">{{ formatBytes(g.tamanio_bytes) }}</td>
             <td class="p-4">
-              <a v-if="g.subido_drive" :href="g.url_drive" target="_blank" class="text-blue-400 hover:underline">Ver en Drive</a>
-              <span v-else class="text-zinc-500">Pendiente</span>
+              <div class="flex items-center gap-3">
+                <a v-if="g.subido_drive" :href="g.url_drive" target="_blank" class="text-blue-400 hover:underline text-xs">Drive</a>
+                <span v-else class="text-zinc-500 text-xs">Local</span>
+                <button @click="deleteGrabacion(g.id)" class="text-red-400 hover:text-red-300 font-bold text-xs bg-red-500/10 hover:bg-red-500/20 px-2 py-1 rounded border border-red-500/20 transition">
+                  🗑️ Eliminar
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -90,6 +95,18 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+const deleteGrabacion = async (id) => {
+  if (!confirm('¿Estás seguro de que deseas eliminar esta grabación de forma permanente? Esto también la borrará de Google Drive.')) return
+  
+  try {
+    await http.delete(`/grabaciones/${id}`)
+    grabaciones.value = grabaciones.value.filter(g => g.id !== id)
+  } catch (err) {
+    console.error('Error eliminando grabación:', err)
+    alert('Hubo un error al eliminar la grabación')
+  }
+}
 
 const formatBytes = (bytes) => {
   if (!bytes) return 'N/A'
