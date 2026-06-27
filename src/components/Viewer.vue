@@ -110,6 +110,7 @@ const auth = useAuthStore()
 let socket = null
 let device = null
 let recvTransport = null
+const activeCameraIds = new Set()
 
 onMounted(async () => {
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
@@ -129,6 +130,35 @@ onMounted(async () => {
     // Solicitar lista de cámaras RTSP
     const list = await new Promise(resolve => socket.emit('get-rtsp-cameras', resolve))
     rtspCameras.value = list
+
+    // Auto-reconectar cámaras RTSP que estaban activas antes de la desconexión
+    for (const camId of activeCameraIds) {
+      try {
+        console.log(`Auto-reconectando cámara RTSP: ${camId}`);
+        await new Promise((resolve, reject) => {
+          socket.emit('request-camera-stream', { cameraId: camId }, (res) => {
+            if (res && res.error) reject(new Error(res.error));
+            else resolve(res);
+          });
+        });
+      } catch (err) {
+        console.error(`Fallo auto-reconexión de cámara ${camId}:`, err);
+        activeCameraIds.delete(camId);
+      }
+    }
+  })
+
+  socket.on('disconnect', () => {
+    console.warn('Conexión perdida con el servidor. Limpiando reproductores...');
+    // Al perder conexión, limpiar el grid visual y el transporte local
+    cameras.value = [];
+    if (recvTransport) {
+      recvTransport.close();
+      recvTransport = null;
+    }
+    if (device) {
+      device = null;
+    }
   })
 
   socket.on('new-producer', async (producerId) => {
@@ -239,7 +269,10 @@ async function toggleCamera(camera) {
     await new Promise((resolve, reject) => {
       socket.emit('request-camera-stream', { cameraId: camera.id }, (res) => {
         if (res && res.error) reject(new Error(res.error));
-        else resolve(res);
+        else {
+          activeCameraIds.add(camera.id);
+          resolve(res);
+        }
       });
     });
   } catch (err) {
@@ -249,6 +282,7 @@ async function toggleCamera(camera) {
 }
 
 function disconnectCamera(cameraId) {
+  activeCameraIds.delete(cameraId);
   socket.emit('leave-camera-stream', { cameraId });
 }
 

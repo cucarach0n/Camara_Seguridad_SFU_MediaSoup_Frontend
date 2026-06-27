@@ -69,12 +69,31 @@
       <label for="recordServer" class="text-sm font-semibold text-zinc-300">Grabar en el servidor (DVR)</label>
     </div>
 
+    <!-- Botón Principal -->
     <button 
+      v-if="!isStreaming && !isReconnecting"
       @click="startStreaming" 
-      :disabled="isStreaming" 
-      class="w-full py-3 bg-teal-500 hover:bg-teal-400 disabled:bg-teal-600/50 disabled:text-zinc-400 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-900 font-bold rounded-lg transition duration-200 transform hover:scale-[1.01] active:scale-[0.99] shadow-lg shadow-teal-500/10"
+      class="w-full py-3 bg-teal-500 hover:bg-teal-400 text-zinc-900 font-bold rounded-lg transition duration-200 transform hover:scale-[1.01] active:scale-[0.99] shadow-lg shadow-teal-500/10"
     >
-      {{ isStreaming ? 'Transmitiendo en Vivo...' : 'Iniciar Transmisión' }}
+      Iniciar Transmisión
+    </button>
+    <button 
+      v-else-if="isReconnecting"
+      disabled
+      class="w-full py-3 bg-yellow-500/50 text-zinc-200 font-bold rounded-lg transition duration-200 cursor-not-allowed flex justify-center items-center gap-2"
+    >
+      <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      Reconectando...
+    </button>
+    <button 
+      v-else
+      @click="stopStreaming" 
+      class="w-full py-3 bg-red-500 hover:bg-red-400 text-white font-bold rounded-lg transition duration-200 transform hover:scale-[1.01] active:scale-[0.99] shadow-lg shadow-red-500/10"
+    >
+      Detener Transmisión
     </button>
   </div>
 </template>
@@ -87,6 +106,9 @@ import { useAuthStore } from '../stores/auth.store'
 
 const videoEl = ref(null)
 const isStreaming = ref(false)
+const isReconnecting = ref(false)
+let wasStreaming = false
+
 const recordingMode = ref('')
 const recordOnServer = ref(false)
 let socket = null
@@ -144,8 +166,35 @@ onMounted(async () => {
     auth: { token: auth.token }
   })
 
-  socket.on('connect', () => {
+  socket.on('connect', async () => {
     console.log('Conectado al servidor de Mediasoup')
+    if (wasStreaming) {
+      console.warn('Recuperando conexión de transmisión de forma automática...');
+      isReconnecting.value = true;
+      wasStreaming = false;
+      setTimeout(async () => {
+        await startStreaming();
+        isReconnecting.value = false;
+      }, 1000);
+    }
+  })
+
+  socket.on('disconnect', () => {
+    console.warn('Conexión perdida. Esperando reconexión...')
+    if (isStreaming.value) {
+      wasStreaming = true;
+      isStreaming.value = false;
+      isReconnecting.value = true;
+      
+      // Limpiar transporte actual
+      if (sendTransport) {
+        sendTransport.close();
+        sendTransport = null;
+      }
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+    }
   })
 
   socket.on('config-mode', (mode) => {
@@ -318,6 +367,28 @@ async function startStreaming() {
     console.error('Error al iniciar la transmisión:', err)
     isStreaming.value = false
   }
+}
+
+function stopStreaming() {
+  isStreaming.value = false;
+  wasStreaming = false;
+  isReconnecting.value = false;
+
+  if (sendTransport) {
+    sendTransport.close();
+    sendTransport = null;
+  }
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+  // Notificamos al servidor que detenemos todo
+  socket.disconnect();
+  setTimeout(() => {
+    socket.connect();
+    // Al destruir el transporte de MediaSoup, la pista de video se apaga.
+    // Volvemos a encender la cámara web localmente para no dejar la pantalla en negro.
+    updateStream();
+  }, 500);
 }
 </script>
 
