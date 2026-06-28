@@ -194,7 +194,9 @@
 <script setup>
 import { ref, onMounted, watch, nextTick } from 'vue'
 import { http } from '../api/http'
+import { useAuthStore } from '../stores/auth.store'
 
+const authStore = useAuthStore()
 const grabaciones = ref([])
 const loading = ref(true)
 const error = ref('')
@@ -314,9 +316,9 @@ const getWidthPercent = (g) => {
 }
 
 const getVideoUrl = (g) => {
-  if (!g.nombre_archivo) return ''
+  if (!g || !g.id) return ''
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
-  return `${backendUrl}/recordings/${g.ruta_archivo}/${g.nombre_archivo}`
+  return `${backendUrl}/api/grabaciones/stream/${g.id}?token=${authStore.token}`
 }
 
 const deleteGrabacion = async (g) => {
