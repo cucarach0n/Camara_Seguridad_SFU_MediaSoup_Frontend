@@ -458,7 +458,9 @@ function stopStreaming() {
   if (mediaRecorder && mediaRecorder.state !== 'inactive') {
     mediaRecorder.stop();
   }
-  // Notificamos al servidor que detenemos todo
+  // Notificamos al servidor explícitamente que detenemos la transmisión
+  socket.emit('stop-streaming');
+  
   socket.disconnect();
   setTimeout(() => {
     socket.connect();
