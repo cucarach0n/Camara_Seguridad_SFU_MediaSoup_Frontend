@@ -158,6 +158,7 @@ const videoEl = ref(null)
 const isStreaming = ref(false)
 const isReconnecting = ref(false)
 let wasStreaming = false
+let reconnectTransmisionId = null;
 
 const recordingMode = ref('')
 const recordOnServer = ref(false)
@@ -233,6 +234,7 @@ onMounted(async () => {
     console.warn('Conexión perdida. Esperando reconexión...')
     if (isStreaming.value) {
       wasStreaming = true;
+      reconnectTransmisionId = transmisionId.value; // Guardar ID para resumir
       isStreaming.value = false;
       isReconnecting.value = true;
       
@@ -347,8 +349,10 @@ async function startStreaming() {
     return
   }
 
-  // Asegurar que tengamos un stream local antes de transmitir
-  if (!localStream.value) {
+  // Asegurar que tengamos un stream local activo antes de transmitir
+  const needsNewStream = !localStream.value || !localStream.value.active || localStream.value.getTracks().some(t => t.readyState === 'ended');
+  if (needsNewStream) {
+    console.log('Stream local inactivo o sin tracks, solicitando uno nuevo...');
     await updateStream()
   }
 
@@ -361,13 +365,18 @@ async function startStreaming() {
   const stream = localStream.value
 
   try {
-    // Registrar transmision en BD para obtener ID único
-    const res = await http.post('/transmisiones', {
-      tipo_origen: 'NAVEGADOR',
-      nombre: streamName.value,
-      gateway_id: null
-    })
-    transmisionId.value = res.data.id
+    // Si estamos reconectando, reutilizar el ID de transmisión
+    if (isReconnecting.value && reconnectTransmisionId) {
+      transmisionId.value = reconnectTransmisionId;
+    } else {
+      // Registrar nueva transmision en BD para obtener ID único
+      const res = await http.post('/transmisiones', {
+        tipo_origen: 'NAVEGADOR',
+        nombre: streamName.value,
+        gateway_id: null
+      })
+      transmisionId.value = res.data.id
+    }
 
     // MODO A: Client-side recording chunks
     if (recordingMode.value === 'A') {
