@@ -160,6 +160,26 @@ const isReconnecting = ref(false)
 let wasStreaming = false
 let reconnectTransmisionId = null;
 
+// Helper function to prevent socket.emit from hanging forever if the connection drops
+function emitWithTimeout(socket, event, data, timeoutMs = 10000) {
+  return new Promise((resolve, reject) => {
+    let timer = setTimeout(() => {
+      reject(new Error(`Socket emit timeout for event: ${event}`));
+    }, timeoutMs);
+
+    const callback = (res) => {
+      clearTimeout(timer);
+      resolve(res);
+    };
+
+    if (data !== undefined) {
+      socket.emit(event, data, callback);
+    } else {
+      socket.emit(event, callback);
+    }
+  });
+}
+
 const recordingMode = ref('')
 const recordOnServer = ref(false)
 let socket = null
@@ -390,11 +410,11 @@ async function startStreaming() {
     }
 
     // Configuración de Mediasoup SFU
-    const rtpCapabilities = await new Promise(resolve => socket.emit('getRouterRtpCapabilities', resolve))
+    const rtpCapabilities = await emitWithTimeout(socket, 'getRouterRtpCapabilities')
     device = new mediasoupClient.Device()
     await device.load({ routerRtpCapabilities: rtpCapabilities })
 
-    const transportInfo = await new Promise(resolve => socket.emit('createWebRtcTransport', resolve))
+    const transportInfo = await emitWithTimeout(socket, 'createWebRtcTransport')
     
     const iceServers = import.meta.env.VITE_TURN_URL ? [{
       urls: import.meta.env.VITE_TURN_URL,
@@ -409,7 +429,7 @@ async function startStreaming() {
 
     sendTransport.on('connect', async ({ dtlsParameters }, callback, errback) => {
       try {
-        await new Promise(resolve => socket.emit('connectTransport', { transportId: sendTransport.id, dtlsParameters }, resolve))
+        await emitWithTimeout(socket, 'connectTransport', { transportId: sendTransport.id, dtlsParameters })
         callback()
       } catch (err) {
         errback(err)
@@ -418,12 +438,12 @@ async function startStreaming() {
 
     sendTransport.on('produce', async ({ kind, rtpParameters }, callback, errback) => {
       try {
-        const { id } = await new Promise(resolve => socket.emit('produce', { 
+        const { id } = await emitWithTimeout(socket, 'produce', { 
           transportId: sendTransport.id, 
           kind, 
           rtpParameters,
           streamName: streamName.value
-        }, resolve))
+        })
         callback({ id })
       } catch (err) {
         errback(err)
