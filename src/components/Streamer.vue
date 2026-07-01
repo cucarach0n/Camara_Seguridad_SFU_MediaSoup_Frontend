@@ -234,7 +234,9 @@ onMounted(async () => {
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
   const auth = useAuthStore()
   socket = io(backendUrl, {
-    auth: { token: auth.token }
+    auth: (cb) => {
+      cb({ token: auth.token })
+    }
   })
 
   socket.on('connect', async () => {

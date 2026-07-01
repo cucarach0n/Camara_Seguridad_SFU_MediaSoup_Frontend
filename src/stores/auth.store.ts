@@ -10,7 +10,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const startRefreshTimer = () => {
     stopRefreshTimer();
-    // Renovar token cada 7 horas (7 * 60 * 60 * 1000 ms = 25200000 ms)
+    // Renovar token cada 1 hora (1 * 60 * 60 * 1000 ms = 3600000 ms)
     refreshTimer = setInterval(async () => {
       try {
         if (!token.value) return;
@@ -20,7 +20,7 @@ export const useAuthStore = defineStore('auth', () => {
       } catch (e) {
         logout();
       }
-    }, 25200000);
+    }, 3600000);
   };
 
   const stopRefreshTimer = () => {
