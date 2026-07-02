@@ -136,7 +136,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { io } from 'socket.io-client'
 import * as mediasoupClient from 'mediasoup-client'
 import { useAuthStore } from '../stores/auth.store'
@@ -314,13 +314,13 @@ async function consumeTrack(producerId) {
 
     await new Promise(resolve => socket.emit('resume', { consumerId: id }, resolve))
 
-    // Vue necesita un tick para renderizar la etiqueta video
-    setTimeout(() => {
-      const videoEl = document.getElementById('video-' + streamId)
-      if (videoEl) {
-        videoEl.srcObject = streamObj.mediaStream;
-      }
-    }, 100)
+    // Usar nextTick para asegurar que la etiqueta <video> ya fue montada por Vue
+    await nextTick();
+    const videoEl = document.getElementById('video-' + streamId);
+    if (videoEl) {
+      videoEl.srcObject = streamObj.mediaStream;
+      videoEl.play().catch(e => console.warn('Error autoplay:', e));
+    }
 
   } catch (err) {
     console.error('Error consuming track:', err)
