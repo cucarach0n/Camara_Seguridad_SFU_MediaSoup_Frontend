@@ -266,7 +266,8 @@ const processRecordings = () => {
   const sortedGrabs = [...grabaciones.value].sort((a, b) => new Date(b.creado_en) - new Date(a.creado_en))
   
   sortedGrabs.forEach(g => {
-    const dateStr = new Date(g.creado_en).toISOString().split('T')[0]
+    const d = new Date(g.creado_en)
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
     const camName = g.transmision?.nombre || 'Transmisión Web'
     
     if (!groups[dateStr]) groups[dateStr] = {}
