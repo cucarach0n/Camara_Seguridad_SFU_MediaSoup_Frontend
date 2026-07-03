@@ -129,10 +129,26 @@
         <div ref="timelineContainer" class="relative shrink-0 border border-white/5 bg-zinc-950 rounded-xl overflow-x-auto custom-scrollbar">
           <div class="flex flex-col relative pb-6 pt-2" :style="{ minWidth: `max(600px, ${zoomLevel * 100}%)` }">
             
-            <!-- Marcas de Horas Globales (Background Grid) -->
+            <!-- Marcas de Horas y Minutos (Background Grid) -->
             <div class="absolute inset-y-0 left-[120px] right-2 pointer-events-none z-0 flex justify-between">
-              <div v-for="h in 25" :key="'grid-'+h" class="h-full w-[1px] relative" :class="h%4===1 ? 'bg-zinc-700/50' : 'bg-zinc-800/30'">
-                <span v-if="h%4===1" class="absolute bottom-1 -translate-x-1/2 text-[10px] font-mono text-zinc-500">{{ (h-1).toString().padStart(2, '0') }}:00</span>
+              <!-- Dividimos 24 horas en intervalos de 5 minutos: 24 * 12 = 288 intervalos (+1 para cerrar) = 289 lineas -->
+              <div v-for="i in 289" :key="'grid-'+i" class="h-full w-[1px] relative" 
+                   :class="(i-1) % 12 === 0 ? 'bg-zinc-600/80' : ((i-1) % 3 === 0 ? 'bg-zinc-700/50' : 'bg-zinc-800/30')">
+                
+                <!-- Hora en punto (00, 01, 02...) siempre visible -->
+                <span v-if="(i-1) % 12 === 0" class="absolute bottom-0 -translate-x-1/2 text-[11px] font-bold font-mono text-zinc-300 drop-shadow-md bg-zinc-950/80 px-1 rounded z-10">
+                  {{ Math.floor((i-1) / 12).toString().padStart(2, '0') }}:00
+                </span>
+                
+                <!-- Minutos (15, 30, 45) visibles con zoom intermedio -->
+                <span v-else-if="(i-1) % 3 === 0 && zoomLevel >= 2" class="absolute bottom-5 -translate-x-1/2 text-[9px] font-mono text-zinc-500 bg-zinc-950/60 px-1 rounded">
+                  {{ Math.floor((i-1) / 12).toString().padStart(2, '0') }}:{{ (((i-1) % 12) * 5).toString().padStart(2, '0') }}
+                </span>
+
+                <!-- Minutos detallados (05, 10, 20...) visibles con alto zoom -->
+                <span v-else-if="zoomLevel >= 8" class="absolute bottom-8 -translate-x-1/2 text-[8px] font-mono text-zinc-600/70 bg-zinc-950/40 px-[2px] rounded">
+                  {{ Math.floor((i-1) / 12).toString().padStart(2, '0') }}:{{ (((i-1) % 12) * 5).toString().padStart(2, '0') }}
+                </span>
               </div>
             </div>
 
