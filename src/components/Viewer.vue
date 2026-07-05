@@ -150,6 +150,7 @@ let device = null
 let recvTransport = null
 const activeCameraIds = ref(new Set())
 const loadingCameraIds = ref(new Set())
+let isDeviceReady = false
 
 onMounted(async () => {
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
@@ -185,6 +186,15 @@ onMounted(async () => {
       } catch (err) {
         console.error(`Fallo auto-reconexión de cámara ${camId}:`, err);
         activeCameraIds.value.delete(camId);
+      }
+    }
+
+    isDeviceReady = true;
+
+    // Si rtspCameras ya tiene datos (vino antes), reconectar ahora
+    for (const cam of rtspCameras.value) {
+      if (cam.isLive && !activeCameraIds.value.has(cam.id) && !loadingCameraIds.value.has(cam.id)) {
+        requestCameraStream(cam);
       }
     }
   })
@@ -223,6 +233,8 @@ onMounted(async () => {
 
   socket.on('rtsp-cameras-updated', (list) => {
     rtspCameras.value = list;
+
+    if (!isDeviceReady) return;
 
     // Si alguna cámara está EN VIVO y no la estamos viendo localmente, auto-conectar
     for (const cam of rtspCameras.value) {
