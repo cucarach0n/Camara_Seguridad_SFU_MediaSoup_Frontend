@@ -221,13 +221,23 @@ onMounted(async () => {
     cameras.value = cameras.value.filter(c => c.id !== streamerId);
   })
 
-  socket.on('camera-stopped', ({ cameraId }) => {
-    console.log(`Cámara detenida globalmente: ${cameraId}`);
+  socket.on('camera-stopped', ({ cameraId, intentional }) => {
+    console.log(`Cámara detenida globalmente: ${cameraId}. Intencional: ${intentional}`);
     activeCameraIds.value.delete(cameraId);
     const streamObj = cameras.value.find(c => c.id === cameraId);
     if (streamObj) {
       streamObj.mediaStream.getTracks().forEach(t => t.stop());
       cameras.value = cameras.value.filter(c => c.id !== cameraId);
+    }
+
+    if (intentional === false) {
+      console.log(`Intentando auto-reconectar cámara ${cameraId} en 5 segundos...`);
+      setTimeout(() => {
+        const cam = rtspCameras.value.find(c => c.id === cameraId);
+        if (cam && cam.isOnline) {
+          requestCameraStream(cam);
+        }
+      }, 5000);
     }
   })
 
