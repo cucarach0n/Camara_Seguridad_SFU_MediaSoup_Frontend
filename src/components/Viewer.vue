@@ -107,7 +107,11 @@
       
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 overflow-y-auto custom-scrollbar pr-2 content-start">
         <div v-for="cam in cameras" :key="cam.id" class="aspect-video bg-black rounded-2xl overflow-hidden relative shadow-[0_0_15px_rgba(0,0,0,0.5)] group ring-1 ring-white/10 hover:ring-teal-500/50 transition-all duration-300">
-          <video :id="'video-' + cam.id" autoplay playsinline class="w-full h-full object-cover"></video>
+          <video :id="'video-' + cam.id" autoplay playsinline 
+            class="w-full h-full transition-all duration-300"
+            :class="videoZoom[cam.id] ? 'object-contain' : 'object-cover'"
+            @dblclick="toggleZoom(cam.id)"
+          ></video>
           
           <!-- Controles en Hover (para no ensuciar la vista) -->
           <div class="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex justify-between items-end">
@@ -117,7 +121,11 @@
             </div>
             
             <div class="flex gap-2">
-              <button @click="toggleFullscreen('video-' + cam.id)" class="p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg backdrop-blur-sm transition-colors border border-white/10">
+              <button @click="toggleZoom(cam.id)" class="p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg backdrop-blur-sm transition-colors border border-white/10" title="Alternar Zoom">
+                <svg v-if="videoZoom[cam.id]" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"></path></svg>
+                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7"></path></svg>
+              </button>
+              <button @click="toggleFullscreen('video-' + cam.id)" class="p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg backdrop-blur-sm transition-colors border border-white/10" title="Pantalla Completa">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
               </button>
             </div>
@@ -144,6 +152,12 @@ import { http } from '../api/http'
 
 const cameras = ref([])
 const rtspCameras = ref([])
+const videoZoom = ref({}) // track zoom state per camera
+
+function toggleZoom(camId) {
+  videoZoom.value[camId] = !videoZoom.value[camId]
+}
+
 const auth = useAuthStore()
 let socket = null
 let device = null
