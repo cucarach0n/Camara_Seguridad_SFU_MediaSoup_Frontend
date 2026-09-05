@@ -98,6 +98,54 @@
         </div>
       </div>
     </div>
+
+    <!-- PANEL DE LOGS -->
+    <div class="mt-8 bg-zinc-900/40 backdrop-blur-md border border-white/5 rounded-3xl p-6 xl:p-8 shadow-2xl flex flex-col transition-all duration-300 hover:border-white/10 hover:shadow-purple-500/10">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-xl font-bold text-purple-400 flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+          Logs del Sistema
+        </h3>
+        <button @click="fetchLogs" class="flex items-center gap-2 px-4 py-2 bg-purple-500/10 text-purple-400 hover:bg-purple-500 hover:text-white rounded-xl transition-all border border-purple-500/20 hover:border-transparent text-sm font-bold">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+          Actualizar
+        </button>
+      </div>
+
+      <div class="overflow-x-auto custom-scrollbar">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-white/10 text-zinc-500 text-sm uppercase tracking-wider">
+              <th class="py-3 px-4 font-bold">Fecha</th>
+              <th class="py-3 px-4 font-bold">Tipo</th>
+              <th class="py-3 px-4 font-bold">Origen</th>
+              <th class="py-3 px-4 font-bold">Cámara</th>
+              <th class="py-3 px-4 font-bold">Mensaje</th>
+            </tr>
+          </thead>
+          <tbody class="text-sm">
+            <tr v-for="log in logs" :key="log.id" class="border-b border-white/5 hover:bg-white/5 transition-colors group">
+              <td class="py-3 px-4 text-zinc-400 whitespace-nowrap">{{ formatearFecha(log.creado_en) }}</td>
+              <td class="py-3 px-4">
+                <span :class="{
+                  'bg-blue-500/20 text-blue-400 border-blue-500/30': log.tipo === 'INFO',
+                  'bg-yellow-500/20 text-yellow-400 border-yellow-500/30': log.tipo === 'WARNING',
+                  'bg-red-500/20 text-red-400 border-red-500/30': log.tipo === 'ERROR'
+                }" class="px-2.5 py-1 rounded-md text-xs font-bold border tracking-wide">
+                  {{ log.tipo }}
+                </span>
+              </td>
+              <td class="py-3 px-4 font-medium text-zinc-300">{{ log.origen }}</td>
+              <td class="py-3 px-4 font-mono text-zinc-500 text-xs">{{ log.camara_id || '-' }}</td>
+              <td class="py-3 px-4 text-zinc-300 min-w-[300px]">{{ log.mensaje }}</td>
+            </tr>
+            <tr v-if="logs.length === 0">
+              <td colspan="5" class="py-8 text-center text-zinc-500">No hay logs registrados.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -123,6 +171,7 @@ import { http } from '../api/http'
 
 const usuarios = ref([])
 const gateways = ref([])
+const logs = ref([])
 
 const formUser = ref({ username: '', password: '', rol: 'USER' })
 const formGw = ref({ identificador: '', nombre: '', user_id: '' })
@@ -143,7 +192,24 @@ const fetchData = async () => {
   }
 }
 
-onMounted(fetchData)
+const fetchLogs = async () => {
+  try {
+    const res = await http.get('/logs')
+    logs.value = res.data
+  } catch (e) {
+    console.error('Error fetching logs:', e)
+  }
+}
+
+const formatearFecha = (fechaStr) => {
+  const d = new Date(fechaStr)
+  return d.toLocaleString()
+}
+
+onMounted(() => {
+  fetchData()
+  fetchLogs()
+})
 
 const crearUsuario = async () => {
   loadingUser.value = true
